@@ -1,0 +1,25 @@
+<project name="Progetto" default="compile">
+
+    <property name="build" location="build"/>
+    <property name="src"   location="src"  />
+
+    <path id="bcel-lib">
+        <pathelement location="libs/bcel-5.2.jar"/>
+        <pathelement location="libs/regexp-1.2.jar"/>
+    </path>
+
+    <target name="init">
+        <tstamp />
+        <mkdir dir="${build}"/>
+    </target>
+    
+    <target name="compile" depends="init">
+        <javac srcdir="${src}" destdir="${build}" debug="true" >
+            <classpath refid="bcel-lib" />
+        </javac>
+    </target>
+
+    <target name="clean">
+        <delete dir="${build}" />
+    </target>
+</project>

@@ -1,0 +1,9 @@
+
+This is just a prototype i have developed for my postgraduation thesis.
+It analyzes java bytecode, using the BCEL library, looking for possible
+places where there can be an ArrayOutOfBoundException without executing
+the code.
+
+To use it just compile it with ant and 
+
+./run path-to-class-file

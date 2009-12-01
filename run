@@ -1,0 +1,7 @@
+#! /bin/sh
+# Author: Dario Meloni <mellon85@gmail.com>
+# License: GPLv3 or later
+
+. ./setup-env
+
+java -ea App $@
