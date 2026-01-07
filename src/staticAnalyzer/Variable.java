@@ -7,8 +7,8 @@ class Variable implements Serializable, Cloneable {
     private String type; // java type signature as defined here
     // http://java.sun.com/j2se/1.5.0/docs/guide/jni/spec/types.html
 
-    private List<Variable> safe = null;
-    private List<Variable> edge = null;
+    List<Variable> safe = null;
+    List<Variable> edge = null;
 
     // value in the abstract domain
     public enum DomainValue {BOTTOM, G0, GEQ0, TOP;
