@@ -666,8 +666,17 @@ class Analysis {
                         // the stack from the arguments.
                         for( Type ty : ii.getArgumentTypes(gen) )
                             s.stackPop();
-                        //@TODO check if there is a return value to push
-                        //      or signal error (missing library)?
+
+                        // pop the object reference if needed
+                        if ( ! (ii instanceof INVOKESTATIC) )
+                            s.stackPop();
+
+                        if ( ii.getReturnType(gen) != Type.VOID ) {
+                             s.stackPush(new Variable(ii.getReturnType(gen).getSignature()
+                                         ,Variable.Kind.LOCAL
+                                         ,Variable.DomainValue.TOP
+                                         ,Integer.MAX_VALUE,pci));
+                        }
                     } else { // the method is in the classes to analyze
                         String class_name = tt.getClassName();
                         String method_name = ii.getMethodName(gen);
