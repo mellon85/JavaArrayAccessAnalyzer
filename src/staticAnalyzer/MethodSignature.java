@@ -2,6 +2,7 @@ package staticAnalyzer;
 import org.apache.bcel.classfile.*;
 import org.apache.bcel.generic.*;
 import org.apache.bcel.*;
+import java.util.*;
 
 class MethodSignature {
     private Method m;
@@ -34,38 +35,48 @@ class MethodSignature {
         int v = hash.hashCode();
         return v;
     }
-    /*
+
+    /**
+     * Setups the vector of variables to have only dependencies between them.
+     * This method filters out any dependencies (safe or edge) in the variables
+     * that are not present in the input vector itself.
+     *
+     * @param v The vector of variables to process.
+     * @return A new vector containing the variables with pruned dependencies.
+     */
     public static Vector<Variable> setupVariables( Vector<Variable> v ) {
-        //@TODO must setup the vector of variables to have only dependencies
-        // beertwen them.
         Vector<Variable> vv = new Vector<Variable>();
 
         // build set of variables for faster lookup
         Set<Variable> variable_table = new HashSet<Variable>();
         for( Variable i : v ) {
-            variable_table.put(v);
+            variable_table.add(i);
         }
 
         // clean safe and edge of the variables
         for( Variable i : v ) {
-            Iterator<Variable> j = i.safe.iterator();
-            while( j.hasNext() ) {
-                Variable t = j.next();
-                if( ! variable_table.contains(t) ) {
-                    j.remove();
+            if (i.safe != null) {
+                Iterator<Variable> j = i.safe.iterator();
+                while( j.hasNext() ) {
+                    Variable t = j.next();
+                    if( ! variable_table.contains(t) ) {
+                        j.remove();
+                    }
                 }
             }
-            j = i.edge.iterator();
-            while( j.hasNext() ) {
-                Variable t = j.next();
-                if( ! variable_table.contains(t) ) {
-                    j.remove();
+
+            if (i.edge != null) {
+                Iterator<Variable> j = i.edge.iterator();
+                while( j.hasNext() ) {
+                    Variable t = j.next();
+                    if( ! variable_table.contains(t) ) {
+                        j.remove();
+                    }
                 }
             }
-            vv.add(i.);
+            vv.add(i);
         }
 
         return vv;
     }
-    */
 }
