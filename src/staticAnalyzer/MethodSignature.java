@@ -35,6 +35,15 @@ class MethodSignature {
         int v = hash.hashCode();
         return v;
     }
+
+    /**
+     * Setups the vector of variables to have only dependencies between them.
+     * This method filters out any dependencies (safe or edge) in the variables
+     * that are not present in the input vector itself.
+     *
+     * @param v The vector of variables to process.
+     * @return A new vector containing the variables with pruned dependencies.
+     */
     public static Vector<Variable> setupVariables( Vector<Variable> v ) {
         Vector<Variable> vv = new Vector<Variable>();
 
