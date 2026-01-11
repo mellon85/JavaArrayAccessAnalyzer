@@ -659,9 +659,14 @@ class Analysis {
                     ConstantPoolGen gen = new ConstantPoolGen(
                             m.getConstantPool());
                     ReferenceType t = ii.getReferenceType(gen); 
-                    ObjectType tt = (ObjectType)t; //@TODO may be arraytype or others
-                    
-                    if ( ! analyzer.isAnalyzable(tt.getClassName()) ) {
+                    boolean analyzable = false;
+                    ObjectType tt = null;
+                    if ( t instanceof ObjectType ) {
+                         tt = (ObjectType)t;
+                         analyzable = analyzer.isAnalyzable(tt.getClassName());
+                    }
+
+                    if ( ! analyzable ) {
                         // skip instruction, un-analizable method. just clean
                         // the stack from the arguments.
                         for( Type ty : ii.getArgumentTypes(gen) )
