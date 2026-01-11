@@ -311,7 +311,7 @@ class Variable implements Serializable, Cloneable {
         return newLocal();
     }
 
-    public Variable div( Variable v ) { //@TODO
+    public Variable div( Variable v ) {
         DomainValue dv;
         if (   getDomainValue() == DomainValue.TOP
           || v.getDomainValue() == DomainValue.TOP ) {
@@ -322,19 +322,19 @@ class Variable implements Serializable, Cloneable {
         Variable r = new Variable(v.type,Kind.LOCAL,dv
                 ,Integer.MAX_VALUE,0);
 
-        // analyze safe and edge
-        Iterator i = safe.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.safe.contains(s)) {
-                r.addSafe(s);
+        // If divisor is non-negative (which it is, since not TOP),
+        // result is <= this.
+        // So we can inherit safe and edge from this.
+        if (dv != DomainValue.TOP) {
+            if (safe != null) {
+                for( Variable s : safe ) {
+                    r.addSafe(s);
+                }
             }
-        }
-        i = edge.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.edge.contains(s)) {
-                r.addEdge(s);
+            if (edge != null) {
+                for( Variable s : edge ) {
+                    r.addEdge(s);
+                }
             }
         }
         return r;
