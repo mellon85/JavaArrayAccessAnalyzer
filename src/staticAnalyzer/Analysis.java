@@ -653,7 +653,7 @@ class Analysis {
                     ConstantPoolGen gen = new ConstantPoolGen(m.getConstantPool());
                     if ( i instanceof CHECKCAST ) {
                         CHECKCAST c = (CHECKCAST)i;
-                        ObjectType t = c.getLoadClassType(gen);
+                        Type t = c.getType(gen);
                         s.stackPush(new Variable(t.getSignature()
                                 ,Variable.Kind.LOCAL
                                 ,Variable.DomainValue.TOP
