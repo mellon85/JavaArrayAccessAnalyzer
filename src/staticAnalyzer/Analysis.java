@@ -1,12 +1,11 @@
 package staticAnalyzer;
 
 import java.util.*;
-import org.apache.bcel.classfile.*;
-import org.apache.bcel.generic.*;
-import org.apache.bcel.*;
+import org.objectweb.asm.tree.*;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 // http://java.sun.com/j2se/1.5.0/docs/guide/jni/spec/types.html
-// http://jakarta.apache.org/bcel/apidocs/index.html
 
 class Analysis {
 
@@ -20,9 +19,9 @@ class Analysis {
         this.analyzer = analyzer;
     }
 
-    protected void analyzeMethods( JavaClass jclass ) {
-        //System.out.println(jclass.getMethods().length+" methods to check");
-        for( Method m : jclass.getMethods() ) {
+    protected void analyzeMethods( ClassNode jclass ) {
+        //System.out.println(jclass.methods.size()+" methods to check");
+        for( MethodNode m : jclass.methods ) {
             // skips method already analyzed
             if ( method_result.get(new MethodSignature(m,jclass)) == null )
                 analyzeMethod(m,jclass);
@@ -30,51 +29,65 @@ class Analysis {
         //System.out.println(methods);
     }
 
-    protected boolean analyzeMethod( Method m, JavaClass j ) {
+    protected boolean analyzeMethod( MethodNode m, ClassNode j ) {
         return analyzeMethod(m,j,null);
     }
 
-    protected boolean analyzeMethod( Method m, JavaClass j,
+    protected boolean analyzeMethod( MethodNode m, ClassNode j,
             Vector<Variable> parameters) {
-        InstructionList il = new InstructionList(m.getCode().getCode());
+        InsnList il = m.instructions;
         MethodSignature ms = new MethodSignature(m,j);
         boolean recursive = false;
         Variable ret = null;
         
+        boolean isNative = (m.access & Opcodes.ACC_NATIVE) != 0;
+        boolean isAbstract = (m.access & Opcodes.ACC_ABSTRACT) != 0;
+
         if( methods.contains(ms) ) {
             recursive = true;
             // return TOP since we don't know what to return!
-            ret = new Variable(m.getReturnType().getSignature()
+            ret = new Variable(Type.getReturnType(m.desc).getDescriptor()
                                ,Variable.Kind.LOCAL
                                ,Variable.DomainValue.TOP
                                ,Integer.MAX_VALUE,0);
-        } else if ( m.isNative() ) {
+        } else if ( isNative ) {
             // If method is native i don't know anything about it.
-            // If the method is abstract i don't have the runtime
-            //   information to choose a method to analyze.
-            ret = new Variable(m.getReturnType().getSignature()
+            ret = new Variable(Type.getReturnType(m.desc).getDescriptor()
                               ,Variable.Kind.LOCAL
                               ,Variable.DomainValue.TOP
                               ,Integer.MAX_VALUE,0);
-        } else if ( m.isAbstract() ) {
+        } else if ( isAbstract ) {
             throw new RuntimeException("Analyzing abstract method!");
         } else {
             //@DEBUG
-            System.out.println("Analyzing "+m.getName());
-            System.out.println(""+il);
+            System.out.println("Analyzing "+m.name);
+            // System.out.println(""+il);
 
             methods.add(ms);
-            InstructionHandle pc = il.getStart();
+
+            // Map labels to indices for our own use if needed, but we can just use AbstractInsnNode index in list?
+            // Actually, for jump targets we need something.
+            // Let's use index in the InsnList.
 
             State state = new State(m,j);
             
             if ( parameters == null ) {
                 // setup start,state for the method call when in app analysis.
                 // no need of anything in library (default for now) analysis.
-                Type tys[] = m.getArgumentTypes();
+                Type[] tys = Type.getArgumentTypes(m.desc);
                 int i = 0;
+                // If not static, 0 is 'this', arguments start at 1.
+                // But State constructor handles 'this' if not static.
+                // So here we add arguments.
+                // Wait, State constructor adds 'this' at 0.
+                // So we should append arguments.
+
+                // If not static, argument 0 is at local index 1?
+                // Actually State.variables is a vector. 'this' is added at 0.
+                // So subsequent args should be added.
+
                 for( Type ty : tys ) {
-                    state.getVariables().add(new Variable(ty.getSignature()
+                    state.getVariables().add(new Variable(ty.getDescriptor()
                                             ,Variable.Kind.LOCAL
                                             ,Variable.DomainValue.TOP
                                             ,i,0));
@@ -88,9 +101,17 @@ class Analysis {
             }
 
             // analyze method instructions
-            state = analyzeInstructions(m,il
-                    ,pc.getPosition(),il.getEnd().getPosition(),state,j);
-            ret = state.getReturn();
+            if (il.size() > 0) {
+                state = analyzeInstructions(m, il
+                        , 0, il.size() - 1, state, j);
+                ret = state.getReturn();
+            } else {
+                // empty method?
+                 ret = new Variable("V"
+                               ,Variable.Kind.LOCAL
+                               ,Variable.DomainValue.TOP
+                               ,Integer.MAX_VALUE,0);
+            }
         }
         // remove method from list of called methods in the stack
         methods.remove(ms);
@@ -98,26 +119,47 @@ class Analysis {
         return recursive;
     }
 
-    protected State analyzeInstructions( Method m, InstructionList il
+    // Helper to find instruction index
+    private int getIndex(InsnList il, AbstractInsnNode node) {
+        return il.indexOf(node);
+    }
+
+    private AbstractInsnNode getInsn(InsnList il, int index) {
+        return il.get(index);
+    }
+
+    protected State analyzeInstructions( MethodNode m, InsnList il
                                        , int start_pc, int end_pc
                                        , State s
-                                       , JavaClass j ) {
-        InstructionHandle pc = il.findHandle(start_pc);
-        Instruction i = pc.getInstruction();
-        int pci = pc.getPosition();
-        //System.out.println("analyze: start "+start_pc+", end "+end_pc);
+                                       , ClassNode j ) {
+
+        // start_pc and end_pc are indices in the InsnList
+        if (start_pc < 0 || start_pc >= il.size()) return s;
+
+        AbstractInsnNode node = il.get(start_pc);
+        int pci = start_pc;
 
         while(true) {
-            pci = pc.getPosition();
-            if (pci > end_pc || pc == null) {
+            if (node == null || pci > end_pc) {
                 return s;
             }
-            i = pc.getInstruction();
-            s.setPC(pci);
             
+            s.setPC(pci);
             System.out.println(pci);
-            if ( i instanceof FCMPG  
-              || i instanceof FCMPL ) {
+
+            int opcode = node.getOpcode();
+            int type = node.getType();
+
+            if (opcode == -1) {
+                // Pseudo instruction (Label, LineNumber, Frame)
+                if (node instanceof LineNumberNode) {
+                    // ignore
+                } else if (node instanceof LabelNode) {
+                    // ignore
+                } else if (node instanceof FrameNode) {
+                    // ignore
+                }
+            } else if ( opcode == Opcodes.FCMPG || opcode == Opcodes.FCMPL ) {
                 Variable v1,v2;
                 v1 = s.stackPop();
                 v2 = s.stackPop();
@@ -125,8 +167,7 @@ class Analysis {
                 assert v2.getType().equals("F");
                 s.stackPush(new Variable("I",Variable.Kind.CONST,
                             Variable.DomainValue.TOP,Integer.MAX_VALUE,pci));
-            } else if ( i instanceof DCMPL
-                     || i instanceof DCMPG ) {
+            } else if ( opcode == Opcodes.DCMPL || opcode == Opcodes.DCMPG ) {
                 Variable v1,v2;
                 v1 = s.stackPop();
                 v2 = s.stackPop();
@@ -134,52 +175,86 @@ class Analysis {
                 assert v2.getType().equals("D");
                 s.stackPush(new Variable("I",Variable.Kind.CONST,
                                 Variable.DomainValue.TOP,Integer.MAX_VALUE,pci));
-            } else if ( i instanceof ConstantPushInstruction ) {
-                ConstantPushInstruction icpi = (ConstantPushInstruction)i;
-                ConstantPoolGen gen = new ConstantPoolGen(m.getConstantPool());
-                int n = icpi.getValue().intValue();
-                String signature = icpi.getType(gen).getSignature();
+            } else if ( (opcode >= Opcodes.ICONST_M1 && opcode <= Opcodes.ICONST_5)
+                     || (opcode >= Opcodes.LCONST_0 && opcode <= Opcodes.LCONST_1)
+                     || (opcode >= Opcodes.FCONST_0 && opcode <= Opcodes.FCONST_2)
+                     || (opcode >= Opcodes.DCONST_0 && opcode <= Opcodes.DCONST_1)
+                     || opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH ) {
+                 // Constant push instructions
+                 // BIPUSH and SIPUSH are IntInsnNode
+                 // Consts are InsnNode
+                 int val = 0;
+                 String sig = "I";
+                 if (opcode == Opcodes.ICONST_M1) val = -1;
+                 else if (opcode == Opcodes.ICONST_0) val = 0;
+                 else if (opcode == Opcodes.ICONST_1) val = 1;
+                 else if (opcode == Opcodes.ICONST_2) val = 2;
+                 else if (opcode == Opcodes.ICONST_3) val = 3;
+                 else if (opcode == Opcodes.ICONST_4) val = 4;
+                 else if (opcode == Opcodes.ICONST_5) val = 5;
+                 else if (opcode == Opcodes.LCONST_0) { val = 0; sig = "J"; }
+                 else if (opcode == Opcodes.LCONST_1) { val = 1; sig = "J"; }
+                 else if (opcode == Opcodes.FCONST_0) { val = 0; sig = "F"; }
+                 else if (opcode == Opcodes.FCONST_1) { val = 1; sig = "F"; }
+                 else if (opcode == Opcodes.FCONST_2) { val = 2; sig = "F"; }
+                 else if (opcode == Opcodes.DCONST_0) { val = 0; sig = "D"; }
+                 else if (opcode == Opcodes.DCONST_1) { val = 1; sig = "D"; }
+                 else if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
+                     val = ((IntInsnNode)node).operand;
+                 }
+
                 Variable.DomainValue f;
-                if ( n > 0 ) {
+                if ( val > 0 ) {
                     f = Variable.DomainValue.G0;
-                } else if ( n >= 0 ) {
+                } else if ( val >= 0 ) {
                     f = Variable.DomainValue.GEQ0;
                 } else {
                     f = Variable.DomainValue.TOP;
                 }
-                Variable v = new Variable(signature,Variable.Kind.CONST
+                Variable v = new Variable(sig,Variable.Kind.CONST
                                          ,f,Integer.MAX_VALUE
                                          ,pci);
                 s.stackPush(v);
-            } else if ( i instanceof ACONST_NULL ) {
-                s.stackPush(new Variable("Ljava/lang/Object",Variable.Kind.CONST
+
+            } else if ( opcode == Opcodes.ACONST_NULL ) {
+                s.stackPush(new Variable("Ljava/lang/Object;",Variable.Kind.CONST
                                          ,Variable.DomainValue.TOP
                                          ,Integer.MAX_VALUE,pci));
-            } else if ( i instanceof LocalVariableInstruction ) {
-                if ( i instanceof LoadInstruction ) {
-                    LoadInstruction li = (LoadInstruction)i;
-                    s.stackPush(s.load(li.getIndex()));
-                } else if ( i instanceof StoreInstruction ) {
-                    StoreInstruction si = (StoreInstruction)i;
-                    Variable v = s.stackPop();
-                    v.setIndex(si.getIndex());
-                    v.setStartPC(pc.getNext().getPosition());
-                    v.setKind(Variable.Kind.LOCAL);
-                    s.store(si.getIndex(),v);
-                } else if ( i instanceof IINC ) {
-                    IINC iinc = (IINC)i;
-                    Variable v = s.load(iinc.getIndex());
-                    v.iinc(iinc.getIncrement());
-                } else {
-                    throw new RuntimeException(
-                            "Unkown Local Variable instruction "+pci);
+            } else if ( (opcode >= Opcodes.ILOAD && opcode <= Opcodes.ALOAD)
+                     || (opcode >= Opcodes.ISTORE && opcode <= Opcodes.ASTORE)
+                     || opcode == Opcodes.IINC ) {
+                // Local Variable instructions
+                // ILOAD, LLOAD, FLOAD, DLOAD, ALOAD = 21..25
+                // ISTORE..ASTORE = 54..58
+                // IINC = 132
+
+                int var = -1;
+                if (node instanceof VarInsnNode) {
+                    var = ((VarInsnNode)node).var;
+                } else if (node instanceof IincInsnNode) {
+                    var = ((IincInsnNode)node).var;
                 }
-            } else if ( i instanceof StackInstruction ) {
-                if ( i instanceof DUP ) {
+
+                if (opcode >= Opcodes.ILOAD && opcode <= Opcodes.ALOAD) {
+                    s.stackPush(s.load(var));
+                } else if (opcode >= Opcodes.ISTORE && opcode <= Opcodes.ASTORE) {
+                    Variable v = s.stackPop();
+                    v.setIndex(var);
+                    // Next instruction pos
+                    v.setStartPC(pci + 1);
+                    v.setKind(Variable.Kind.LOCAL);
+                    s.store(var,v);
+                } else if (opcode == Opcodes.IINC) {
+                    IincInsnNode iinc = (IincInsnNode)node;
+                    Variable v = s.load(iinc.var);
+                    v.iinc(iinc.incr);
+                }
+
+            } else if ( opcode == Opcodes.DUP ) {
                     Variable top = s.stackPeek();
                     assert top.getCategory() == 1;
                     s.stackPush(top);
-                } else if ( i instanceof DUP_X1 ) {
+            } else if ( opcode == Opcodes.DUP_X1 ) {
                     Variable top_0 = s.stackPop();
                     Variable top_1 = s.stackPop();
                     assert top_0.getCategory() == 1;
@@ -187,10 +262,10 @@ class Analysis {
                     s.stackPush(top_0);
                     s.stackPush(top_1);
                     s.stackPush(top_0);
-                } else if ( i instanceof DUP_X2 ) {
+            } else if ( opcode == Opcodes.DUP_X2 ) {
                     Variable top_0 = s.stackPop();
                     Variable top_1 = s.stackPop();
-                    Variable top_2 = null; // s.stackPop();
+                    Variable top_2 = null;
                     if ( top_0.getCategory() == 1 && top_1.getCategory() == 2 ) {
                         s.stackPush(top_0);
                         s.stackPush(top_1);
@@ -205,11 +280,11 @@ class Analysis {
                         s.stackPush(top_1);
                         s.stackPush(top_0);
                     }
-                } else if ( i instanceof DUP2 ) {
+            } else if ( opcode == Opcodes.DUP2 ) {
                     Variable top = s.stackPeek();
-                    if ( top.getCategory() == 2) { // 1 category 2
+                    if ( top.getCategory() == 2) {
                         s.stackPush(top);
-                    } else { // 2 category 1
+                    } else {
                         Variable top_0 = s.stackPop();
                         Variable top_1 = s.stackPop();
                         
@@ -221,7 +296,7 @@ class Analysis {
                         s.stackPush(top_1);
                         s.stackPush(top_0);
                     }
-                } else if ( i instanceof DUP2_X1 ) {
+            } else if ( opcode == Opcodes.DUP2_X1 ) {
                     Variable top_0 = s.stackPop();
                     Variable top_1 = s.stackPop();
                     Variable top_2 = null;
@@ -240,7 +315,7 @@ class Analysis {
                         s.stackPush(top_1);
                         s.stackPush(top_0);
                     }
-                } else if ( i instanceof DUP2_X2 ) {
+            } else if ( opcode == Opcodes.DUP2_X2 ) {
                     Variable top_0 = s.stackPop();
                     Variable top_1 = s.stackPop();
                     Variable top_2 = null;
@@ -279,16 +354,16 @@ class Analysis {
                             s.stackPush(top_0);
                         }
                     }
-                } else if ( i instanceof POP ) {
+            } else if ( opcode == Opcodes.POP ) {
                     Variable top = s.stackPop();
                     assert top.getCategory() == 1;
-                } else if ( i instanceof POP2 ) {
+            } else if ( opcode == Opcodes.POP2 ) {
                     Variable top = s.stackPop();
                     if ( top.getCategory() == 1 ) {
                         Variable top_1 = s.stackPop();
                         assert top_1.getCategory() == 1;
                     }
-                } else if ( i instanceof SWAP ) {
+            } else if ( opcode == Opcodes.SWAP ) {
                     Variable a = s.stackPop();
                     Variable b = s.stackPop();
 
@@ -297,10 +372,13 @@ class Analysis {
 
                     s.stackPush(a);
                     s.stackPush(b);
-                }
-            } else if ( i instanceof ArrayInstruction ) {
+            } else if ( (opcode >= Opcodes.IALOAD && opcode <= Opcodes.SALOAD)
+                     || (opcode >= Opcodes.IASTORE && opcode <= Opcodes.SASTORE) ) {
+                // Array instructions
                 Variable value = null;
-                if ( i instanceof StackConsumer ) { // store command
+                boolean isStore = (opcode >= Opcodes.IASTORE && opcode <= Opcodes.SASTORE);
+
+                if ( isStore ) { // store command
                     // eliminate value from stack.
                     value = s.stackPop();
                 }
@@ -310,80 +388,84 @@ class Analysis {
                 // check if the index is safe
                 if ( ! index.isSafe(arrayref) ) {
                     // load is not safe, add report.
-                    makeNewReport(m,j,pc.getPosition());
-                    //System.out.println("Access error found here");
+                    makeNewReport(m,j,pci);
                     // mark index as safe for arrayref.
                     index.addSafe(arrayref);
                 }
-                if ( i instanceof StackProducer ) {
+                if ( !isStore ) {
                     s.stackPush(s.load(arrayref,index));
-                } else if ( i instanceof StackConsumer ) {
-                    s.store(arrayref,index,value);
                 } else {
-                    throw new RuntimeException(
-                            "Unknown Array instruction "+pci);
+                    s.store(arrayref,index,value);
                 }
-            } else if ( i instanceof ArithmeticInstruction ) {
+            } else if ( (opcode >= Opcodes.IADD && opcode <= Opcodes.LXOR) ) {
+                // Arithmetic Instructions
+                // IADD..LXOR
                 Variable v1,v2,v;
                 v1 = v2 = s.stackPop(); // first value on the stack
-                if( i instanceof DADD || i instanceof FADD
-                 || i instanceof IADD || i instanceof LADD ) {
+
+                if( opcode == Opcodes.DADD || opcode == Opcodes.FADD
+                 || opcode == Opcodes.IADD || opcode == Opcodes.LADD ) {
                     v1 = s.stackPop();
                     v = v1.add(v2);
-                } else if ( i instanceof DDIV || i instanceof FDIV
-                         || i instanceof IDIV || i instanceof LDIV ) {
+                } else if ( opcode == Opcodes.DDIV || opcode == Opcodes.FDIV
+                         || opcode == Opcodes.IDIV || opcode == Opcodes.LDIV ) {
                     v1 = s.stackPop();
                     v = v1.div(v2);
-                } else if ( i instanceof DMUL || i instanceof FMUL
-                         || i instanceof IMUL || i instanceof LMUL ) {
+                } else if ( opcode == Opcodes.DMUL || opcode == Opcodes.FMUL
+                         || opcode == Opcodes.IMUL || opcode == Opcodes.LMUL ) {
                     v1 = s.stackPop();
                     v = v1.mul(v2);
-                } else if ( i instanceof DNEG || i instanceof FNEG
-                         || i instanceof INEG || i instanceof LNEG ) {
+                } else if ( opcode == Opcodes.DNEG || opcode == Opcodes.FNEG
+                         || opcode == Opcodes.INEG || opcode == Opcodes.LNEG ) {
                     v = v2.neg();
-                } else if ( i instanceof DREM || i instanceof FREM 
-                         || i instanceof IREM || i instanceof LREM ) {
+                } else if ( opcode == Opcodes.DREM || opcode == Opcodes.FREM
+                         || opcode == Opcodes.IREM || opcode == Opcodes.LREM ) {
                     v1 = s.stackPop();
                     v = v1.rem(v2);
-                } else if ( i instanceof DSUB || i instanceof FSUB 
-                         || i instanceof ISUB || i instanceof LSUB ) {
+                } else if ( opcode == Opcodes.DSUB || opcode == Opcodes.FSUB
+                         || opcode == Opcodes.ISUB || opcode == Opcodes.LSUB ) {
                     v1 = s.stackPop();
                     v = v1.sub(v2);
-                } else if ( i instanceof IAND || i instanceof LAND ) {
+                } else if ( opcode == Opcodes.IAND || opcode == Opcodes.LAND ) {
                     v1 = s.stackPop();
                     v = v1.and(v2);
-                } else if ( i instanceof ISHL || i instanceof LSHL ) {
+                } else if ( opcode == Opcodes.ISHL || opcode == Opcodes.LSHL ) {
                     v1 = s.stackPop();
                     v = v1.shl(v2);
-                } else if ( i instanceof ISHR || i instanceof LSHR ) {
+                } else if ( opcode == Opcodes.ISHR || opcode == Opcodes.LSHR ) {
                     v1 = s.stackPop();
                     v = v1.shr(v2);
-                } else if ( i instanceof IUSHR || i instanceof LUSHR ) {
+                } else if ( opcode == Opcodes.IUSHR || opcode == Opcodes.LUSHR ) {
                     v1 = s.stackPop();
                     v = v1.ushr(v2);
-                } else if ( i instanceof IOR || i instanceof LOR ) {
+                } else if ( opcode == Opcodes.IOR || opcode == Opcodes.LOR ) {
                     v1 = s.stackPop();
                     v = v1.or(v2);
-                } else if (i instanceof IXOR || i instanceof LXOR) {
+                } else if (opcode == Opcodes.IXOR || opcode == Opcodes.LXOR) {
                     v1 = s.stackPop();
                     v = v1.xor(v2);
                 } else {
                     throw new RuntimeException(
-                            "Unknown arithmetic bytecode "+pci);
+                            "Unknown arithmetic bytecode "+opcode);
                 }
                 v.setStartPC(pci);
                 s.stackPush(v);
-            } else if ( i instanceof BranchInstruction ) {
-                if ( i instanceof IfInstruction ) {
+            } else if ( (opcode >= Opcodes.IFEQ && opcode <= Opcodes.IF_ACMPNE) || opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL ) {
+                // Branch Instructions
+                // IFEQ..IF_ACMPNE, IFNULL, IFNONNULL
+
+                if (node instanceof JumpInsnNode) {
                     Variable v1,v2;
 
                     State false_branch = s.clone();
                     State true_branch  = s;
                     
-                    IfInstruction ifi = (IfInstruction)i;
-                    InstructionHandle true_ih = ifi.getTarget();
+                    JumpInsnNode ifi = (JumpInsnNode)node;
+                    LabelNode true_target = ifi.label;
+                    int true_target_idx = getIndex(il, true_target);
+                    int next_pc_idx = pci + 1; // Assuming next instruction
 
-                    if( i instanceof IF_ICMPEQ ) {
+                    if( opcode == Opcodes.IF_ICMPEQ ) {
                         { // true v1 == v2
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -393,7 +475,7 @@ class Analysis {
                             v2 = false_branch.stackPop();
                             v1 = false_branch.stackPop();
                         }
-                    } else if ( i instanceof IF_ICMPNE ) {
+                    } else if ( opcode == Opcodes.IF_ICMPNE ) {
                         { // true v1 ≠ v2
                             true_branch.stackPop();
                             true_branch.stackPop();
@@ -403,7 +485,7 @@ class Analysis {
                             v1 = false_branch.stackPop();
                             v2.cmpeq(v1);
                         }
-                    } else if ( i instanceof IF_ICMPGE ) {
+                    } else if ( opcode == Opcodes.IF_ICMPGE ) {
                         { // true v1 >= v2
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -416,7 +498,7 @@ class Analysis {
                             v1.cmplt(v2); // v1 <  v2
                             v2.cmpge(v1); // v2 >= v1
                         }
-                    } else if ( i instanceof IF_ICMPGT ) {
+                    } else if ( opcode == Opcodes.IF_ICMPGT ) {
                         { // true v1 > v2
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -429,7 +511,7 @@ class Analysis {
                             v1.cmple(v2); // v1 <= v2
                             v2.cmpge(v1); // v2 >= v1
                         }
-                    } else if ( i instanceof IF_ICMPLE ) {
+                    } else if ( opcode == Opcodes.IF_ICMPLE ) {
                         { // true v1 <= v2
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -442,7 +524,7 @@ class Analysis {
                             v1.cmpgt(v2); // v1 >  v2
                             v2.cmple(v1); // v2 <= v1
                         }
-                    }  else if ( i instanceof IF_ICMPLT ) {
+                    }  else if ( opcode == Opcodes.IF_ICMPLT ) {
                         { // true v1 < v2
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -455,7 +537,7 @@ class Analysis {
                             v1.cmpge(v2); // v1 >= v2
                             v2.cmple(v1); // v2 <= v1
                         }
-                    } else if ( i instanceof IFLT ) {
+                    } else if ( opcode == Opcodes.IFLT ) {
                         { // true < 0
                             v1 = true_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.TOP);
@@ -464,7 +546,7 @@ class Analysis {
                             v1 = false_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.GEQ0);
                         }
-                    } else if ( i instanceof IFEQ ) {
+                    } else if ( opcode == Opcodes.IFEQ ) {
                         { // true =0
                             v1 = true_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.GEQ0);
@@ -472,7 +554,7 @@ class Analysis {
                         { // false ≠0
                             v1 = false_branch.stackPop();
                         }
-                    } else if ( i instanceof IFGE ) {
+                    } else if ( opcode == Opcodes.IFGE ) {
                         { // true >=0
                             v1 = true_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.GEQ0);
@@ -481,7 +563,7 @@ class Analysis {
                             v1 = false_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.TOP);
                         }
-                    } else if ( i instanceof IFGT ) {
+                    } else if ( opcode == Opcodes.IFGT ) {
                         { // true >0
                             v1 = true_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.G0);
@@ -492,7 +574,7 @@ class Analysis {
                                 v1.setDomainValue(Variable.DomainValue.TOP);
                             }
                         }
-                    } else if ( i instanceof IFLE ) {
+                    } else if ( opcode == Opcodes.IFLE ) {
                         { // true <=0
                             v1 = true_branch.stackPop();
                             if( v1.getDomainValue() != Variable.DomainValue.GEQ0 ) {
@@ -503,16 +585,7 @@ class Analysis {
                             v1 = false_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.G0);
                         }
-                    } else if ( i instanceof IFLT ) {
-                        { // true <0
-                            v1 = true_branch.stackPop();
-                            v1.setDomainValue(Variable.DomainValue.TOP);
-                        }
-                        { // false >=0 
-                            v1 = false_branch.stackPop();
-                            v1.setDomainValue(Variable.DomainValue.GEQ0);
-                        }
-                    } else if ( i instanceof IFNE ) {
+                    } else if ( opcode == Opcodes.IFNE ) {
                         { // true ≠0
                             v1 = true_branch.stackPop();
                         }
@@ -520,16 +593,16 @@ class Analysis {
                             v1 = false_branch.stackPop();
                             v1.setDomainValue(Variable.DomainValue.GEQ0);
                         }
-                    } else if ( i instanceof IFNULL 
-                             || i instanceof IFNONNULL ) {
+                    } else if ( opcode == Opcodes.IFNULL
+                             || opcode == Opcodes.IFNONNULL ) {
                         { // true
                             v1 = true_branch.stackPop();
                         }
                         { // false
                             v1 = false_branch.stackPop();
                         }
-                    } else if ( i instanceof IF_ACMPEQ 
-                             || i instanceof IF_ACMPNE ) {
+                    } else if ( opcode == Opcodes.IF_ACMPEQ
+                             || opcode == Opcodes.IF_ACMPNE ) {
                         { // true
                             v2 = true_branch.stackPop();
                             v1 = true_branch.stackPop();
@@ -541,22 +614,22 @@ class Analysis {
                     } else {
                         throw new RuntimeException("Unknown if bytecode");
                     }
-                    // System.out.println("false_branch "+false_branch);
-                    // System.out.println("true_branch "+true_branch);
 
-                    //System.out.println("analyzing false"); 
-                    analyzeInstructions(m,il,pc.getNext().getPosition()
-                           ,min(true_ih.getPrev().getPosition(),end_pc)
+                    // analyzeInstructions uses indices.
+
+                    analyzeInstructions(m,il, next_pc_idx
+                           ,min(true_target_idx - 1,end_pc)
                            ,false_branch,j);
-                    // System.out.println(false_branch);
 
                     // there is a then only if the else finished with a goto.
                     int jump = false_branch.getJump();
                     if( jump >= pci ) { // there has been a goto!
-                        // System.out.println(false_branch);
-                        //System.out.println("analyzing true");
-                        pc  = il.findHandle(false_branch.getPC()).getNext();
-                        analyzeInstructions(m,il,pc.getPosition()
+                        // In BCEL code: pc = il.findHandle(false_branch.getPC()).getNext();
+                        // This seems to skip instructions?
+                        // If false_branch hit a goto, it set jump.
+                        // Here we continue with true branch analysis.
+
+                        analyzeInstructions(m,il, true_target_idx
                                            ,min(end_pc,jump-1),true_branch,j);
                         // true_branch loop
                         jump = true_branch.getJump();
@@ -581,254 +654,267 @@ class Analysis {
                         } while(false_branch.intersect(loop));
                     }
 
-                    System.out.println("pre-intersect "+pc.getPosition()
+                    System.out.println("pre-intersect "+pci
                             +" max is "+end_pc);
                     true_branch.intersect(false_branch);
-                    pc  = il.findHandle(true_branch.getPC()).getNext();
-                    if( pc != null ) {
-                      //  System.out.println("if end jump to "+pc.getPosition()
-                      //          +" max is "+end_pc);
+
+                    // In the original, it does 'pc = il.findHandle(true_branch.getPC()).getNext()'
+                    // But here we are in a loop iterating instructions.
+                    // We need to skip to the merge point.
+
+                    // If we just continue, we process the next instruction.
+                    // But we want to process from where the branches met.
+                    // The original code uses recursion for branches, so when it returns here,
+                    // we need to update our current position 'pci' or just let loop continue?
+                    // The original code uses 'continue' which goes to next iteration of while(true).
+                    // But it updates 'pc' before continue?
+                    // No, the original 'pc' update is inside the if block.
+
+                    // In original: pc = il.findHandle(true_branch.getPC()).getNext();
+                    // So we should update 'node' and 'pci'.
+
+                    // Wait, true_branch.getPC() is the last PC executed in that branch.
+                    // .getNext() is the instruction after that.
+
+                    int next_idx = true_branch.getPC() + 1;
+                    if (next_idx < il.size()) {
+                        node = il.get(next_idx);
+                        pci = next_idx;
+                        continue; // Continue loop with new node
                     }
-                    //System.out.println("end if");
-                    continue;
-                } else if (i instanceof GotoInstruction ) {
-                    GotoInstruction ig = (GotoInstruction)i;
-                    s.setJump(ig.getTarget().getPosition());
-                } else {
-                    throw new RuntimeException(
-                            "BranchInstruction not implemented yet: "+pci);
+
+                    // If no next, we are done?
+                    return s;
+
                 }
-            } else if ( i instanceof ConversionInstruction ) {
-                Variable v = s.stackPop().clone();
-                if ( i instanceof D2F ) {
+            } else if ( opcode == Opcodes.GOTO ) {
+                JumpInsnNode ig = (JumpInsnNode)node;
+                s.setJump(getIndex(il, ig.label));
+            } else if ( (opcode >= Opcodes.I2L && opcode <= Opcodes.I2S) ) {
+                // Conversion
+                 Variable v = s.stackPop().clone();
+                if ( opcode == Opcodes.D2F ) {
                     assert v.getType().equals("D");
                     v.setType("F");
-                } else if ( i instanceof D2L ) {
+                } else if ( opcode == Opcodes.D2L ) {
                     assert v.getType().equals("D");
                     v.setType("J");
-                } else if ( i instanceof D2I ) {
+                } else if ( opcode == Opcodes.D2I ) {
                     assert v.getType().equals("D");
                     v.setType("I");
-                } else if ( i instanceof F2D ) {
+                } else if ( opcode == Opcodes.F2D ) {
                     assert v.getType().equals("F");
                     v.setType("D");
-                } else if ( i instanceof F2L ) {
+                } else if ( opcode == Opcodes.F2L ) {
                     assert v.getType().equals("F");
                     v.setType("J");
-                } else if ( i instanceof F2I ) {
+                } else if ( opcode == Opcodes.F2I ) {
                     assert v.getType().equals("F");
                     v.setType("I");
-                } else if ( i instanceof I2B 
-                         || i instanceof I2C ) {
-                    // can be ignored, does not change anything
-                    // for this analysis. it can at most truncare the
-                    // higher bits, reducing the value without changing
-                    // the value in the abstract domain
-                } else if ( i instanceof I2D ) {
+                } else if ( opcode == Opcodes.I2B
+                         || opcode == Opcodes.I2C || opcode == Opcodes.I2S ) {
+                    // ignored
+                } else if ( opcode == Opcodes.I2D ) {
                     assert v.getType().equals("I");
                     v.setType("D");
-                } else if ( i instanceof I2L ) {
+                } else if ( opcode == Opcodes.I2L ) {
                     assert v.getType().equals("I");
                     v.setType("J");
-                } else if ( i instanceof I2F ) {
+                } else if ( opcode == Opcodes.I2F ) {
                     assert v.getType().equals("I");
                     v.setType("F");
-                } else if ( i instanceof L2D ) {
+                } else if ( opcode == Opcodes.L2D ) {
                     assert v.getType().equals("J");
                     v.setType("D");
-                } else if ( i instanceof L2I ) {
+                } else if ( opcode == Opcodes.L2I ) {
                     assert v.getType().equals("J");
                     v.setType("I");
-                } else if ( i instanceof L2F ) {
+                } else if ( opcode == Opcodes.L2F ) {
                     assert v.getType().equals("J");
                     v.setType("F");
-                } else {
-                    throw new RuntimeException(
-                      "Unkonwn Conversion Instruction :"+pci);
                 }
                 s.stackPush(v);
-            } else if ( i instanceof CPInstruction ) {
-                if ( i instanceof INSTANCEOF || i instanceof CHECKCAST ) {
+            } else if ( opcode == Opcodes.INSTANCEOF || opcode == Opcodes.CHECKCAST ) {
                     s.stackPop(); //@TODO atm ignoring types
                     s.stackPush(new Variable("V"
                                 ,Variable.Kind.LOCAL
                                 ,Variable.DomainValue.TOP
                                 ,Integer.MAX_VALUE,pci));
-                } else if ( i instanceof InvokeInstruction ) {
-                    InvokeInstruction ii = (InvokeInstruction)i;
-                    ConstantPoolGen gen = new ConstantPoolGen(
-                            m.getConstantPool());
-                    ReferenceType t = ii.getReferenceType(gen); 
-                    ObjectType tt = (ObjectType)t; //@TODO may be arraytype or others
+            } else if ( opcode >= Opcodes.INVOKEVIRTUAL && opcode <= Opcodes.INVOKEINTERFACE ) {
+                    // Invoke
+                    MethodInsnNode ii = (MethodInsnNode)node;
+                    String owner = ii.owner;
+                    String name = ii.name;
+                    String desc = ii.desc;
                     
-                    if ( ! analyzer.isAnalyzable(tt.getClassName()) ) {
+                    // Check analyzable
+                    if ( ! analyzer.isAnalyzable(owner) ) {
                         // skip instruction, un-analizable method. just clean
                         // the stack from the arguments.
-                        for( Type ty : ii.getArgumentTypes(gen) )
+                        Type[] args = Type.getArgumentTypes(desc);
+                        for( Type ty : args )
                             s.stackPop();
 
                         // pop the object reference if needed
-                        if ( ! (ii instanceof INVOKESTATIC) )
+                        if ( opcode != Opcodes.INVOKESTATIC )
                             s.stackPop();
 
-                        if ( ii.getReturnType(gen) != Type.VOID ) {
-                             s.stackPush(new Variable(ii.getReturnType(gen).getSignature()
+                        Type retType = Type.getReturnType(desc);
+                        if ( retType.getSort() != Type.VOID ) {
+                             s.stackPush(new Variable(retType.getDescriptor()
                                          ,Variable.Kind.LOCAL
                                          ,Variable.DomainValue.TOP
                                          ,Integer.MAX_VALUE,pci));
                         }
                     } else { // the method is in the classes to analyze
-                        String class_name = tt.getClassName();
-                        String method_name = ii.getMethodName(gen);
-                        JavaClass cl = null;
-                        Type ty[] = ii.getArgumentTypes(gen);
-                        Method method = null;
-                        System.out.println("Analyze call to "+method_name);
+                        System.out.println("Analyze call to "+name);
 
-                        //@TODO remove arguments off the stack, should
-                        //be passed in the method for better analysys?
-                        for( Type argument : ii.getArgumentTypes(gen) )
+                        Type[] args = Type.getArgumentTypes(desc);
+                        for( Type argument : args )
                             s.stackPop();
 
                         // search method going up in the class tree
                         try { 
                             boolean found = false;
-                            cl = Repository.lookupClass(class_name);
+                            ClassNode cl = Repository.lookupClass(owner);
+                            MethodNode method = null;
                             do {
                                 //System.out.println("method is in " + cl.getClassName()+"?");
-                                Method[] ms = cl.getMethods();
-                                for( Method clmethod : ms ) {
-                                    //System.out.println(method.getName()+"=="+method_name);
-                                    if ( clmethod.getName().equals(method_name) &&
-                                            equalTypes(clmethod.getArgumentTypes(),ty) ) {
-                                        if ( clmethod.isAbstract() ) {
+                                List<MethodNode> ms = cl.methods;
+                                for( MethodNode clmethod : ms ) {
+                                    if ( clmethod.name.equals(name) &&
+                                            clmethod.desc.equals(desc) ) {
+                                        if ( (clmethod.access & Opcodes.ACC_ABSTRACT) != 0 ) {
                                             found = false; // found, but keep going
                                             break;
                                         } else { // may be native
-                                            //System.out.println("Found");
                                             method = clmethod;
                                             found = true; // found, stop it
                                             break;
                                         }
                                     }
                                 }
-                                if ( !found )
-                                    cl = cl.getSuperClass(); // becomes null if it is Object
+                                if ( !found ) {
+                                    if (cl.superName != null)
+                                         cl = Repository.lookupClass(cl.superName);
+                                    else
+                                         cl = null;
+                                }
                             } while( ! found && cl != null );
                             if( ! found && cl == null ) {
-                                // method not found and climbed up to
-                                // java.lang.Object!
-                                throw new RuntimeException("Can't find method "+method_name);
+                                throw new RuntimeException("Can't find method "+name);
                             }
+
+                            // Re-assign cl to the class where method was found?
+                            // No, analyzeMethod takes (MethodNode, ClassNode).
+                            // If found, cl is the class node.
+
+                            MethodSignature ms = new MethodSignature(method,cl);
+                            if( method_result.get(ms) == null ) {
+                                boolean recursive = analyzeMethod(method,cl);
+                                if( recursive ) {
+                                    assert method_result.get(ms).getDomainValue() == Variable.DomainValue.TOP;
+                                    analyzeMethod(method,cl);
+                                    Variable ret = method_result.get(ms);
+                                    while( ret.intersect(method_result.get(ms),s) ) {
+                                        analyzeMethod(method,cl);
+                                    }
+                                    method_result.remove(ms);
+                                    method_result.put(ms,ret);
+                                }
+                            }
+
+                            if ( opcode != Opcodes.INVOKESTATIC )
+                                s.stackPop();
+
+                            Type retType = Type.getReturnType(desc);
+
+                            if (retType.getSort() != Type.VOID ) {
+                                Variable ret = method_result.get(ms);
+                                ret = ret.clone();
+                                ret.cleanBounds();
+                                s.stackPush(ret);
+                            }
+
                         } catch ( ClassNotFoundException e ) {
                             throw new RuntimeException(e);
                         }
-
-                        MethodSignature ms = new MethodSignature(method,cl);
-                        if( method_result.get(ms) == null ) {
-                            boolean recursive = analyzeMethod(method,cl);
-                            //System.out.println("Is recursive? "+recursive);
-                            if( recursive ) {
-                                assert method_result.get(ms).getDomainValue() == Variable.DomainValue.TOP;
-                                analyzeMethod(method,cl);
-                                Variable ret = method_result.get(ms);
-                                while( ret.intersect(method_result.get(ms),s) ) {
-                                    analyzeMethod(method,cl);
-                                }
-                                method_result.remove(ms);
-                                method_result.put(ms,ret);
-                            }
-                        }
-
-                        // pop the object reference if needed
-                        if ( ! (i instanceof INVOKESTATIC) ) 
-                            s.stackPop();
-
-                        if (method.getReturnType() != Type.VOID ) {
-                            // System.out.println("put on stack result of "+ms);
-                            // put result on top of the stack+ms
-                            Variable ret = method_result.get(ms);
-                            ret = ret.clone();
-                            ret.cleanBounds();// must be null, there are references to variables
-                                              // that are not necessarly correct!
-                                             
-                            // putting in relation arguments with the result
-                            // requires a lot more code.
-                            s.stackPush(ret);
-                        }
                     }
-                } else if ( i instanceof FieldInstruction ) {
-                    if ( i instanceof GETSTATIC || i instanceof GETFIELD ) {
-                        FieldInstruction a = (FieldInstruction)i;
-                        ConstantPoolGen gen = new ConstantPoolGen(m.getConstantPool());
-                        ReferenceType t = a.getReferenceType(gen); 
-                        if ( i instanceof GETFIELD ) {
-                            s.stackPop(); // objectref
-                        }
-                        Variable v;
-                        if ( t instanceof ObjectType ) {
-                            v = new Variable(((ObjectType)t).getClassName()
+            } else if ( opcode == Opcodes.GETSTATIC || opcode == Opcodes.GETFIELD ) {
+                    FieldInsnNode a = (FieldInsnNode)node;
+                    if ( opcode == Opcodes.GETFIELD ) {
+                        s.stackPop(); // objectref
+                    }
+                    Variable v;
+                    Type t = Type.getType(a.desc);
+
+                    if ( t.getSort() == Type.OBJECT ) {
+                        v = new Variable(t.getDescriptor()
+                                         ,Variable.Kind.FIELD,Variable.DomainValue.TOP
+                                         ,Integer.MAX_VALUE,pci);
+                        s.stackPush(v); // object reference
+                    } else if ( t.getSort() == Type.ARRAY ) {
+                         v = new Variable(t.getDescriptor()
                                              ,Variable.Kind.FIELD,Variable.DomainValue.TOP
                                              ,Integer.MAX_VALUE,pci);
-                            s.stackPush(v); // object reference
-                        } else if ( t instanceof ArrayType ) {
-                            v = new Variable("["+((ArrayType)t).getElementType()
-                                                 ,Variable.Kind.FIELD,Variable.DomainValue.TOP
-                                                 ,Integer.MAX_VALUE,pci);
-                            s.stackPush(v); // array reference
-                        } else {
-                            throw new RuntimeException(
-                              "UninitializedObjectType not implemented: "+pci);
-                        }
-                    } else if( i instanceof PUTSTATIC ) {
-                        s.stackPop(); // value
-                    } else if ( i instanceof PUTFIELD ){
-                        s.stackPop(); // value
-                        s.stackPop(); // object ref
+                        s.stackPush(v); // array reference
                     } else {
-                        throw new RuntimeException(
-                                "FieldInstruction not completed yet: "+pci);
+                         // Primitives
+                         v = new Variable(t.getDescriptor()
+                                         ,Variable.Kind.FIELD,Variable.DomainValue.TOP
+                                         ,Integer.MAX_VALUE,pci);
+                        s.stackPush(v);
                     }
-                } else if ( i instanceof LDC ) { // LDC_W included
-                    LDC ii = (LDC)i;
-                    Variable v = s.loadConstant(ii.getIndex());
-                    s.stackPush(v);
-                } else if ( i instanceof NEW ) {
-                    ConstantPoolGen gen = new ConstantPoolGen(m.getConstantPool());
-                    ObjectType type = ((NEW)i).getLoadClassType(gen);
-                    s.stackPush(new Variable(type.getSignature()
+            } else if ( opcode == Opcodes.PUTSTATIC ) {
+                    s.stackPop(); // value
+            } else if ( opcode == Opcodes.PUTFIELD ){
+                    s.stackPop(); // value
+                    s.stackPop(); // object ref
+            } else if ( opcode == Opcodes.LDC ) {
+                    LdcInsnNode ii = (LdcInsnNode)node;
+                    Object cst = ii.cst;
+                    Variable v = null;
+                    if (cst instanceof Integer) {
+                         int val = (Integer)cst;
+                         Variable.DomainValue f = (val>=0)?Variable.DomainValue.GEQ0:Variable.DomainValue.TOP;
+                         if(val>0) f = Variable.DomainValue.G0;
+                         v = new Variable("I", Variable.Kind.CONST, f, Integer.MAX_VALUE, pci);
+                    } else if (cst instanceof Float) {
+                         v = new Variable("F", Variable.Kind.CONST, Variable.DomainValue.TOP, Integer.MAX_VALUE, pci);
+                    } else if (cst instanceof Long) {
+                         v = new Variable("J", Variable.Kind.CONST, Variable.DomainValue.TOP, Integer.MAX_VALUE, pci);
+                    } else if (cst instanceof Double) {
+                         v = new Variable("D", Variable.Kind.CONST, Variable.DomainValue.TOP, Integer.MAX_VALUE, pci);
+                    } else if (cst instanceof String) {
+                         v = new Variable("Ljava/lang/String;", Variable.Kind.CONST, Variable.DomainValue.TOP, Integer.MAX_VALUE, pci);
+                    } else if (cst instanceof Type) {
+                         v = new Variable("Ljava/lang/Class;", Variable.Kind.CONST, Variable.DomainValue.TOP, Integer.MAX_VALUE, pci);
+                    }
+                    if (v != null) s.stackPush(v);
+            } else if ( opcode == Opcodes.NEW ) {
+                    TypeInsnNode tin = (TypeInsnNode)node;
+                    s.stackPush(new Variable(Type.getObjectType(tin.desc).getDescriptor()
                                 ,Variable.Kind.LOCAL
                                 ,Variable.DomainValue.TOP
                                 ,Integer.MAX_VALUE,pci));
-                    // throw new RuntimeException("NEW not completed");
-                } else {
-                    throw new RuntimeException(
-                            "CPInstruction not implemented yet: "+pci);
-                }
-            } else if ( i instanceof ARRAYLENGTH ) {
+            } else if ( opcode == Opcodes.ARRAYLENGTH ) {
                 Variable arrayref = s.stackPop();
                 Variable edge     = new Variable("I",Variable.Kind.LOCAL
                                                 ,Variable.DomainValue.GEQ0
                                                 ,Integer.MAX_VALUE,pci);
                 edge.addEdge(arrayref);
                 s.stackPush(edge);
-            } else if ( i instanceof MONITORENTER 
-                     || i instanceof MONITOREXIT ) {
+            } else if ( opcode == Opcodes.MONITORENTER
+                     || opcode == Opcodes.MONITOREXIT ) {
                 s.stackPop();
-            } else if ( i instanceof NOP || i instanceof BREAKPOINT 
-                     || i instanceof CompoundInstruction
-                     || i instanceof IMPDEP1 
-                     || i instanceof IMPDEP2 ) {
-                /* ignore. virtual instructions generated only from bcel
-                 * classes, not real bytecode (compound) or opcodes to ignore
-                 * (breakpoint,nop,..) */
-            } else if ( i instanceof ATHROW ) {
+            } else if ( opcode == Opcodes.NOP ) {
+                // ignore
+            } else if ( opcode == Opcodes.ATHROW ) {
                 //@TODO if the exception catch is in the method body
                 //then continue, or else terminate.
                 throw new RuntimeException("athrow not yet implemented");
-            } else if ( i instanceof ReturnInstruction ) {
-                // set the return value and return the current state.
-                // do not removes any intermediate result.
+            } else if ( opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN ) {
+                // Return
                 if ( s.stackSize() > 0 ) {
                     s.setReturn(s.stackPop());
                 } else {
@@ -839,11 +925,13 @@ class Analysis {
                 }
                 return s;
             } else {
-                throw new RuntimeException("Uknown type of bytecode: "+i); 
+                 // Ignore unsupported opcodes or throw?
+                 // throw new RuntimeException("Uknown type of bytecode: "+opcode);
             }
 
             // load next bytecode
-            pc  = pc.getNext();
+            node = node.getNext();
+            pci = getIndex(il, node);
         }
     }
 
@@ -851,10 +939,24 @@ class Analysis {
         return reports;
     }
 
-    private final void makeNewReport( Method m, JavaClass jclass, int idx ) {
-        int line = m.getLineNumberTable().getSourceLine(idx);
-        BadArrayAccess ba = new BadArrayAccess(jclass.getFileName()
-                                      ,m.getName()
+    private final void makeNewReport( MethodNode m, ClassNode jclass, int idx ) {
+        // Line number lookup
+        int line = -1;
+        // Search for LineNumberNode before idx
+        // This is inefficient but works.
+        // Actually, we can look at the InsnList.
+
+        // Since idx is index in InsnList.
+        for(int i=idx; i>=0; i--) {
+            AbstractInsnNode n = m.instructions.get(i);
+            if(n instanceof LineNumberNode) {
+                line = ((LineNumberNode)n).line;
+                break;
+            }
+        }
+
+        BadArrayAccess ba = new BadArrayAccess(jclass.sourceFile
+                                      ,m.name
                                       ,line);
         if ( ! reports.contains(ba) ) {
             reports.add(ba);
@@ -863,16 +965,5 @@ class Analysis {
 
     private static final int min( int a, int b ) {
         return a < b ? a : b;
-    }
-
-    private static final boolean equalTypes( Type a[], Type b[] ) {
-        if ( a.length != b.length )
-            return false;
-
-        for( int i = 0; i < a.length; i++ ) {
-            if( ! a[i].equals(b[i]) )
-                return false;
-        }
-        return true;
     }
 }

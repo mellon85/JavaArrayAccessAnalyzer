@@ -1,13 +1,14 @@
 package staticAnalyzer;
-import org.apache.bcel.classfile.*;
-import org.apache.bcel.generic.*;
-import org.apache.bcel.*;
+
+import java.util.*;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.ClassNode;
 
 class MethodSignature {
-    private Method m;
-    private JavaClass c;
+    private MethodNode m;
+    private ClassNode c;
 
-    public MethodSignature(Method m, JavaClass c) {
+    public MethodSignature(MethodNode m, ClassNode c) {
         this.m = m;
         this.c = c;
     }
@@ -26,46 +27,12 @@ class MethodSignature {
     }
 
     public String toString() {
-        return m.getName()+" "+m.getSignature()+" "+c.getClassName();
+        return m.name+" "+m.desc+" "+c.name;
     }
 
     public int hashCode() {
-        String hash = m.getName()+" "+m.getSignature()+" "+c.getClassName();
+        String hash = m.name+" "+m.desc+" "+c.name;
         int v = hash.hashCode();
         return v;
     }
-    /*
-    public static Vector<Variable> setupVariables( Vector<Variable> v ) {
-        //@TODO must setup the vector of variables to have only dependencies
-        // beertwen them.
-        Vector<Variable> vv = new Vector<Variable>();
-
-        // build set of variables for faster lookup
-        Set<Variable> variable_table = new HashSet<Variable>();
-        for( Variable i : v ) {
-            variable_table.put(v);
-        }
-
-        // clean safe and edge of the variables
-        for( Variable i : v ) {
-            Iterator<Variable> j = i.safe.iterator();
-            while( j.hasNext() ) {
-                Variable t = j.next();
-                if( ! variable_table.contains(t) ) {
-                    j.remove();
-                }
-            }
-            j = i.edge.iterator();
-            while( j.hasNext() ) {
-                Variable t = j.next();
-                if( ! variable_table.contains(t) ) {
-                    j.remove();
-                }
-            }
-            vv.add(i.);
-        }
-
-        return vv;
-    }
-    */
 }

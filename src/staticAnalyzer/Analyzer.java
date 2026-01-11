@@ -1,7 +1,7 @@
 package staticAnalyzer;
 
 import java.util.*;
-import org.apache.bcel.*;
+import org.objectweb.asm.tree.ClassNode;
 
 public class Analyzer {
 
