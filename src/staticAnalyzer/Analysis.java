@@ -649,11 +649,21 @@ class Analysis {
                 s.stackPush(v);
             } else if ( i instanceof CPInstruction ) {
                 if ( i instanceof INSTANCEOF || i instanceof CHECKCAST ) {
-                    s.stackPop(); //@TODO atm ignoring types
-                    s.stackPush(new Variable("V"
+                    s.stackPop();
+                    ConstantPoolGen gen = new ConstantPoolGen(m.getConstantPool());
+                    if ( i instanceof CHECKCAST ) {
+                        CHECKCAST c = (CHECKCAST)i;
+                        Type t = c.getType(gen);
+                        s.stackPush(new Variable(t.getSignature()
                                 ,Variable.Kind.LOCAL
                                 ,Variable.DomainValue.TOP
                                 ,Integer.MAX_VALUE,pci));
+                    } else if ( i instanceof INSTANCEOF ) {
+                        s.stackPush(new Variable("I"
+                                ,Variable.Kind.LOCAL
+                                ,Variable.DomainValue.GEQ0
+                                ,Integer.MAX_VALUE,pci));
+                    }
                 } else if ( i instanceof InvokeInstruction ) {
                     InvokeInstruction ii = (InvokeInstruction)i;
                     ConstantPoolGen gen = new ConstantPoolGen(
