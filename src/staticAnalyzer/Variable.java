@@ -341,7 +341,41 @@ class Variable implements Serializable, Cloneable {
     }
 
     public Variable rem( Variable v ) { //@TODO
-        throw new RuntimeException("Variable.rem unimplemented");
+        DomainValue dv;
+        if ( value == DomainValue.G0 || value == DomainValue.GEQ0 ) {
+            dv = DomainValue.GEQ0;
+        } else {
+            dv = DomainValue.TOP;
+        }
+
+        Variable r = new Variable(type,Kind.LOCAL,dv
+                ,Integer.MAX_VALUE,0);
+
+        // result < v
+        // valid only if a >= 0 and v > 0
+        if( (value == DomainValue.G0 || value == DomainValue.GEQ0)
+            && (v.value == DomainValue.G0 || v.value == DomainValue.GEQ0) ) {
+            r.addSafe(v);
+            if ( v.safe != null ) {
+                for( Variable s : v.safe ) r.addSafe(s);
+            }
+            if ( v.edge != null ) {
+                for( Variable s : v.edge ) r.addSafe(s);
+            }
+        }
+
+        // result <= this
+        // valid only if a >= 0
+        if ( value == DomainValue.G0 || value == DomainValue.GEQ0 ) {
+            if ( safe != null ) {
+                for( Variable s : safe ) r.addSafe(s);
+            }
+            if ( edge != null ) {
+                for( Variable s : edge ) r.addEdge(s);
+            }
+        }
+
+        return r;
     }
 
     public Variable mul( Variable v ) {
