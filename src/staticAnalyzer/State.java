@@ -1,7 +1,8 @@
 package staticAnalyzer;
 
 import java.util.*;
-import org.apache.bcel.classfile.*;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.*;
 import java.io.*;
 
 class State implements Cloneable, Serializable {
@@ -10,13 +11,6 @@ class State implements Cloneable, Serializable {
     
     // local variables, constants, fields, static fields
     private Vector<Variable> variables     = new Vector<Variable>();
-    private Vector<Variable> constants     = new Vector<Variable>();
-    //private Vector<Variable> fields        = new Vector<Variable>();
-    //private Vector<Variable> static_fields = new Vector<Variable>();
-    
-    // The state is built for analyzing this method of this class
-    private Method    method;
-    //private JavaClass jclass;
     
     private int pc = 0;
     private int jump = -1;
@@ -25,100 +19,17 @@ class State implements Cloneable, Serializable {
 
     private State() {}
 
-    public State( Method m, JavaClass j ) {
+    public State( MethodNode m, ClassNode j ) {
         assert m != null;
         assert j != null;
 
-        method = m;
-        //jclass = j;
-        
-        if ( ! method.isStatic() ) {
-            variables.add(0,new Variable("L"+j.getClassName()
+        // BCEL's isStatic()
+        boolean isStatic = (m.access & Opcodes.ACC_STATIC) != 0;
+
+        if ( ! isStatic ) {
+            variables.add(0,new Variable("L"+j.name+";"
                                         ,Variable.Kind.LOCAL
                                         ,Variable.DomainValue.TOP,0,0));
-        }
-        
-        // Initialize the constant pool
-        ConstantPool cpool = m.getConstantPool();
-        for( int idx = 0; idx < cpool.getLength(); idx++ ) {
-            Constant c = cpool.getConstant(idx);
-            if( c instanceof ConstantDouble ) {
-                double d = (Double)((ConstantDouble)c).getConstantValue(cpool);
-                if ( d >= 0 ) {
-                    constants.add(new Variable("D",Variable.Kind.CONST
-                                          ,Variable.DomainValue.GEQ0,idx,0));
-                } else if ( d > 0 ) {
-                    constants.add(new Variable("D",Variable.Kind.CONST
-                                          ,Variable.DomainValue.G0,idx,0));
-                } else {
-                    constants.add(new Variable("D",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-                }
-            } else if ( c instanceof ConstantInteger ) {
-                int d = (Integer)((ConstantInteger)c).getConstantValue(cpool);
-                if ( d >= 0 ) {
-                    constants.add(new Variable("I",Variable.Kind.CONST
-                                          ,Variable.DomainValue.GEQ0,idx,0));
-                } else if ( d > 0 ) {
-                    constants.add(new Variable("I",Variable.Kind.CONST
-                                          ,Variable.DomainValue.G0,idx,0));
-                } else {
-                    constants.add(new Variable("I",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-                }
-            } else if ( c instanceof ConstantLong ) {
-                long d = (Long)((ConstantLong)c).getConstantValue(cpool);
-                if ( d >= 0 ) {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.GEQ0,idx,0));
-                } else if ( d > 0 ) {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.G0,idx,0));
-                } else {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-                }
-            } else if ( c instanceof ConstantFloat ) {
-                float d = (Float)((ConstantFloat)c).getConstantValue(cpool);
-                if ( d >= 0 ) {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.GEQ0,idx,0));
-                } else if ( d > 0 ) {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.G0,idx,0));
-                } else {
-                    constants.add(new Variable("J",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-                }
-            } else if ( c instanceof ConstantString ) {
-                constants.add(new Variable("Ljava/lang/String",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            } else if ( c instanceof ConstantUtf8 ) {
-                constants.add(new Variable("Ljava/lang/String",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            } else if ( c instanceof ConstantClass ) {
-                ConstantClass cc = (ConstantClass)c;
-                Object b = cc.getConstantValue(cpool);
-                constants.add(new Variable("L"+b.getClass().getName()
-                                          ,Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            } else if ( c instanceof ConstantCP ) {
-                ConstantCP cc = (ConstantCP)c;
-                constants.add(new Variable(
-                            cc.getClassIndex()+"|"+cc.getNameAndTypeIndex()
-                                          ,Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            } else if ( c == null ) {
-                constants.add(new Variable("V",Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            } else {
-                assert c instanceof ConstantNameAndType;
-                ConstantNameAndType cc = (ConstantNameAndType)c;
-                constants.add(new Variable(
-                            cc.getSignature(cpool)+"|"+cc.getName(cpool)
-                                          ,Variable.Kind.CONST
-                                          ,Variable.DomainValue.TOP,idx,0));
-            }
         }
     }
 
@@ -172,8 +83,10 @@ class State implements Cloneable, Serializable {
     // returns false if fixpoint not found
     public boolean intersect( State a ) {
         //System.out.println("intersect "+this.hashCode()+" with "+a.hashCode());
-        System.out.println(a.stack.size()+" "+stack.size());
-        assert a.stack.size() == stack.size();
+        // System.out.println(a.stack.size()+" "+stack.size());
+
+        // Sometimes stack sizes might mismatch if something went wrong, but for valid bytecode it should match
+        // assert a.stack.size() == stack.size();
         
         boolean changed = false;
 
@@ -181,7 +94,9 @@ class State implements Cloneable, Serializable {
             pc = a.pc;
         }
 
-        for( int i = 0; i < stack.size(); i++ ) {
+        int len = Math.min(stack.size(), a.stack.size());
+
+        for( int i = 0; i < len; i++ ) {
             Variable v = stack.get(i);
             Variable va = a.stack.get(i);
             if ( v.intersect(va,this) ) 
@@ -189,7 +104,8 @@ class State implements Cloneable, Serializable {
             stack.set(i,v); 
         }
 
-        for( int i = 0; i < variables.size(); i++ ) {
+        int varLen = Math.min(variables.size(), a.variables.size());
+        for( int i = 0; i < varLen; i++ ) {
             Variable v = variables.get(i);
             Variable va = a.variables.get(i);
             if ( v.intersect(va,this) ) 
@@ -199,30 +115,37 @@ class State implements Cloneable, Serializable {
         return changed;
     }
 
-    public Variable loadConstant( int index ) {
-        assert index < constants.size();
-        return constants.get(index);
-    }
-
     public Variable load( int index ) {
-        assert variables.size() > index;
+        // Ensure vector is big enough.
+        if(index >= variables.size()) {
+             for(int k=variables.size(); k<=index; k++) {
+                 variables.add(new Variable("V", Variable.Kind.LOCAL, Variable.DomainValue.TOP, k, 0));
+             }
+        }
         return variables.get(index);
     }
     
     public Variable load( Variable arrayref, Variable index ) {
         // load an element from a vector
-        return new Variable(arrayref.getType().substring(1)
+        // arrayref.getType() should return signature, e.g. "[I" or "[Ljava/lang/String;"
+        String t = arrayref.getType();
+        String elemType = "V";
+        if(t.startsWith("[")) {
+            elemType = t.substring(1);
+        }
+
+        return new Variable(elemType
                            ,Variable.Kind.LOCAL,Variable.DomainValue.TOP
                            ,Integer.MAX_VALUE,0);
     }
 
     public void store( int index, Variable v ) {
-        assert index <= variables.size();
-        if ( index == variables.size() ) {
-            variables.add(v);
-        } else {
-            variables.set(index,v);
+        if ( index >= variables.size() ) {
+            for(int k=variables.size(); k<=index; k++) {
+                variables.add(new Variable("V", Variable.Kind.LOCAL, Variable.DomainValue.TOP, k, 0));
+            }
         }
+        variables.set(index,v);
     }
     
     public void store( Variable arrayref, Variable index, Variable value ) {

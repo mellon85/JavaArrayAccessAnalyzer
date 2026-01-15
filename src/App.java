@@ -1,6 +1,6 @@
 import java.util.*;
-import org.apache.bcel.classfile.*;
-import org.apache.bcel.Repository;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import java.io.*;
 import java.util.jar.*;
 import staticAnalyzer.*;
@@ -14,7 +14,7 @@ class App {
     public App( String args[] ) {
         Vector<String> class_names = new Vector<String>();
 
-        // load classes and jar files in the bcel repository
+        // load classes and jar files in the repository
         for( String s : args ) {
             try {
                 if( s.endsWith(".class") ) {
@@ -35,9 +35,6 @@ class App {
             }
         }
 
-        //@DEBUG
-        // System.err.println(class_names.toString()); 
-
         Analyzer a = new Analyzer();
         try {
             // create an instance of the static analyzer
@@ -50,9 +47,13 @@ class App {
 
     private static final void addClass( String file, Vector<String> v )
             throws IOException {
-        JavaClass j = new ClassParser(file).parse();
-        Repository.addClass(j);
-        v.add(j.getClassName());
+        FileInputStream fis = new FileInputStream(file);
+        ClassReader cr = new ClassReader(fis);
+        ClassNode cn = new ClassNode();
+        cr.accept(cn, 0);
+        Repository.addClass(cn);
+        v.add(cn.name);
+        fis.close();
     }
 
     private static final void addJar( String jar, Vector<String> v ) 
@@ -62,9 +63,11 @@ class App {
         while( (je = js.getNextJarEntry()) != null ) {
             String name = je.getName();
             if ( name.endsWith(".class") && ! je.isDirectory() ) {
-                JavaClass j = new ClassParser(jar,name).parse();
-                Repository.addClass(j);
-                v.add(j.getClassName());
+                ClassReader cr = new ClassReader(js);
+                ClassNode cn = new ClassNode();
+                cr.accept(cn, 0);
+                Repository.addClass(cn);
+                v.add(cn.name);
             }
         }
     }

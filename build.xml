@@ -3,8 +3,9 @@
     <property name="build" location="build"/>
     <property name="src"   location="src"  />
 
-    <path id="bcel-lib">
-        <pathelement location="libs/bcel-5.2.jar"/>
+    <path id="asm-lib">
+        <pathelement location="libs/asm-9.7.jar"/>
+        <pathelement location="libs/asm-tree-9.7.jar"/>
         <pathelement location="libs/regexp-1.2.jar"/>
     </path>
 
@@ -15,7 +16,7 @@
     
     <target name="compile" depends="init">
         <javac srcdir="${src}" destdir="${build}" debug="true" >
-            <classpath refid="bcel-lib" />
+            <classpath refid="asm-lib" />
         </javac>
     </target>
 
