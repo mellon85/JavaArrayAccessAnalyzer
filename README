@@ -1,9 +1,13 @@
 
 This is just a prototype i have developed for my postgraduation thesis.
-It analyzes java bytecode, using the BCEL library, looking for possible
+It analyzes java bytecode, using the ASM library, looking for possible
 places where there can be an ArrayOutOfBoundException without executing
 the code.
 
-To use it just compile it with ant and 
+To use it just build it with gradle:
 
-./run path-to-class-file
+./gradlew shadowJar
+
+And run it:
+
+java -jar build/libs/StaticAnalyzer-all.jar path-to-class-file
