@@ -1,0 +1,1435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="AnalyzerTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-01-18T17:07:02" hostname="devbox" time="2.115">
+  <properties/>
+  <testcase name="testAllSamples()" classname="AnalyzerTest" time="2.115"/>
+  <system-out><![CDATA[Testing test15.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test2
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+Analyze call to test2
+5
+6
+7
+8
+9
+No error found
+Testing test2.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+[test2.java:5 in test]
+Testing test1.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+No error found
+Testing test10.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+pre-intersect 12 max is 27
+pre-intersect 12 max is 33
+29
+30
+31
+32
+33
+[test10.java:7 in test]
+Testing test14.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+pre-intersect 25 max is 44
+40
+41
+42
+43
+44
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+pre-intersect 25 max is 43
+40
+41
+42
+43
+pre-intersect 13 max is 43
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+pre-intersect 25 max is 38
+pre-intersect 25 max is 43
+40
+41
+42
+43
+pre-intersect 13 max is 43
+pre-intersect 13 max is 49
+45
+46
+47
+48
+49
+[test14.java:8 in test]
+Testing test20.java
+Analyzing <init>
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyzing get
+0
+1
+2
+3
+4
+5
+6
+7
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+8
+Analyze call to <init>
+9
+10
+11
+12
+13
+Analyze call to get
+14
+No error found
+Testing test12.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+pre-intersect 21 max is 25
+22
+23
+24
+25
+[test12.java:7 in test]
+Testing test23.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 7 max is 7
+pre-intersect 3 max is 29
+8
+9
+10
+11
+No error found
+Testing test5.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+pre-intersect 7 max is 13
+pre-intersect 5 max is 18
+14
+15
+16
+17
+18
+No error found
+Testing test8.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+pre-intersect 12 max is 23
+pre-intersect 10 max is 23
+pre-intersect 12 max is 24
+pre-intersect 10 max is 29
+25
+26
+27
+28
+29
+No error found
+Testing test16.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test2
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+Analyze call to test2
+26
+27
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+Analyze call to test2
+26
+pre-intersect 12 max is 26
+pre-intersect 10 max is 26
+pre-intersect 12 max is 27
+pre-intersect 10 max is 32
+28
+29
+30
+31
+32
+No error found
+Testing test18.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to g
+Analyzing g
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to f
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to g
+Analyzing g
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to f
+17
+18
+17
+18
+17
+18
+17
+18
+No error found
+Testing test21.java
+Analyzing <init>
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyzing get
+0
+1
+2
+3
+4
+5
+6
+7
+Analyzing gets
+0
+1
+2
+3
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+8
+Analyze call to <init>
+9
+10
+11
+12
+13
+14
+Analyze call to gets
+15
+16
+Analyze call to get
+17
+18
+No error found
+Testing test13.java
+Analyzing <init>
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+pre-intersect 8 max is 19
+pre-intersect 6 max is 19
+pre-intersect 8 max is 20
+pre-intersect 6 max is 35
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+No error found
+Testing test7.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+pre-intersect 9 max is 20
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+pre-intersect 9 max is 20
+pre-intersect 9 max is 26
+22
+23
+24
+25
+26
+No error found
+Testing test6.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing p
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+pre-intersect 9 max is 19
+pre-intersect 4 max is 34
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+No error found
+Testing test4.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+pre-intersect 5 max is 18
+12
+13
+14
+15
+16
+17
+18
+[test4.java:6 in test, test4.java:8 in test]
+Testing test11.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+pre-intersect 13 max is 26
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+pre-intersect 13 max is 26
+pre-intersect 13 max is 32
+28
+29
+30
+31
+32
+No error found
+Testing test22.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing gets
+0
+1
+2
+3
+4
+5
+Analyzing dummy
+0
+1
+2
+Analyzing f
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+Analyze call to gets
+20
+21
+22
+23
+24
+25
+Analyze call to dummy
+26
+27
+28
+29
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+Analyze call to gets
+20
+21
+22
+23
+24
+25
+Analyze call to dummy
+26
+27
+28
+pre-intersect 13 max is 28
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+Analyze call to gets
+20
+21
+22
+23
+24
+25
+Analyze call to dummy
+26
+27
+28
+pre-intersect 13 max is 28
+pre-intersect 13 max is 34
+30
+31
+32
+33
+34
+[test22.java:6 in gets]
+Testing test17.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to test
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+pre-intersect 3 max is 18
+8
+9
+10
+11
+12
+13
+14
+15
+16
+Analyze call to test
+17
+18
+17
+18
+No error found
+Testing test3.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+pre-intersect 5 max is 16
+12
+13
+14
+15
+16
+[test3.java:6 in test]
+Testing test9.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing test
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+pre-intersect 10 max is 21
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+pre-intersect 10 max is 21
+pre-intersect 10 max is 27
+23
+24
+25
+26
+27
+No error found
+Testing test19.java
+Analyzing <init>
+0
+1
+2
+3
+4
+Analyzing f
+0
+1
+2
+3
+Analyzing g
+0
+1
+2
+3
+4
+Analyze call to f
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+pre-intersect 11 max is 22
+18
+19
+20
+21
+22
+No error found
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
