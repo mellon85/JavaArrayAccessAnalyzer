@@ -5,4 +5,3 @@ class test2 {
         return a[x]; // error! x<0 || x > a.length
     }
 }
-

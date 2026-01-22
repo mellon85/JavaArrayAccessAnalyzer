@@ -10,7 +10,7 @@ class test6 {
             } else {
                 y = 2;
             }
-        } 
+        }
         x = y+2*z+x;
         return x;
     }

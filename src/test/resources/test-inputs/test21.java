@@ -13,7 +13,7 @@ class test21 {
     public int get() {
         return x+y;
     }
-    
+
     public static int gets() {
         return 12;
     }

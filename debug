@@ -1,8 +1,0 @@
-#! /bin/sh
-# Author: Dario Meloni <mellon85@gmail.com>
-# License: GPLv3 or later
-
-. ./setup-env
-
-cat src/test/test$1.java
-jdb -sourcepath src App build/test/test$1.class

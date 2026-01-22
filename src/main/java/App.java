@@ -5,44 +5,40 @@ import java.io.*;
 import java.util.jar.*;
 import staticAnalyzer.*;
 
-class App {
+public class App {
 
     public static void main( String args[] ) {
-        new App(args);
+        try {
+            new App().run(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
     
-    public App( String args[] ) {
+    public void run( String args[] ) throws IOException, ClassNotFoundException {
         Vector<String> class_names = new Vector<String>();
 
         // load classes and jar files in the repository
         for( String s : args ) {
-            try {
-                if( s.endsWith(".class") ) {
-                    addClass(s,class_names);
-                } else if ( s.endsWith(".jar") ) {
-                    addJar(s,class_names);
-                } else if ( s.equals("-h") ) {
-                    System.out.println("App [file.class] [file.jar]");
-                    return;
-                } else {
-                    System.err.println("Uknown parameter "+s);
-                    System.exit(1);
-                }
-            } catch( IOException e ) {
-                System.err.println("Error while loading "+s);
-                e.printStackTrace();
+            if( s.endsWith(".class") ) {
+                addClass(s,class_names);
+            } else if ( s.endsWith(".jar") ) {
+                addJar(s,class_names);
+            } else if ( s.equals("-h") ) {
+                System.out.println("App [file.class] [file.jar]");
                 return;
+            } else {
+                throw new IllegalArgumentException("Uknown parameter "+s);
             }
         }
 
         Analyzer a = new Analyzer();
-        try {
-            // create an instance of the static analyzer
-            a.analyzeClasses(class_names);
-        } catch( ClassNotFoundException e ) {
-            System.err.println("The impossible has happened");
-            e.printStackTrace();
-        }
+        // create an instance of the static analyzer
+        a.analyzeClasses(class_names);
     }
 
     private static final void addClass( String file, Vector<String> v )

@@ -8,4 +8,3 @@ class test5 {
         return 0;
     }
 }
-

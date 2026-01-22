@@ -12,7 +12,7 @@ class test22 {
     public int f( int[] a ) {
         int c = 0;
         for( int i = 0; i < a.length; i++ ) {
-            c += test22.gets(i,a);   
+            c += test22.gets(i,a);
             dummy(c);
         }
         return c;

@@ -5,4 +5,3 @@ class test1 {
         System.out.println("Hello World, i am a Test");
     }
 }
-
