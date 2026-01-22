@@ -82,6 +82,7 @@ class Analysis {
                 }
             } else {
                 // there are some arguments for the function
+                parameters = MethodSignature.setupVariables(parameters);
                 for( Variable v : parameters ) {
                     state.getVariables().add(v);
                 }
