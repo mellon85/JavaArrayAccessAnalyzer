@@ -311,29 +311,28 @@ class Variable implements Serializable, Cloneable {
         return newLocal();
     }
 
-    public Variable div( Variable v ) { //@TODO
-        DomainValue dv;
-        if (   getDomainValue() == DomainValue.TOP
-          || v.getDomainValue() == DomainValue.TOP ) {
-            dv = DomainValue.TOP;
-        } else {
-            dv = DomainValue.GEQ0;
+    public Variable div( Variable v ) {
+        if (getDomainValue() == DomainValue.BOTTOM || v.getDomainValue() == DomainValue.BOTTOM) {
+            return new Variable(type, Kind.LOCAL, DomainValue.BOTTOM, Integer.MAX_VALUE, 0);
         }
-        Variable r = new Variable(v.type,Kind.LOCAL,dv
-                ,Integer.MAX_VALUE,0);
+
+        if (getDomainValue() == DomainValue.TOP || v.getDomainValue() == DomainValue.TOP) {
+            return new Variable(type, Kind.LOCAL, DomainValue.TOP, Integer.MAX_VALUE, 0);
+        }
+
+        Variable r = new Variable(type, Kind.LOCAL, DomainValue.GEQ0, Integer.MAX_VALUE, 0);
 
         // analyze safe and edge
-        Iterator i = safe.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.safe.contains(s)) {
+        // For integer arithmetic: result = this / v.
+        // If this >= 0 and v >= 1, then result <= this.
+        // Propagate safe (strict upper bounds) and edge (inclusive upper bounds).
+        if (safe != null) {
+            for (Variable s : safe) {
                 r.addSafe(s);
             }
         }
-        i = edge.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.edge.contains(s)) {
+        if (edge != null) {
+            for (Variable s : edge) {
                 r.addEdge(s);
             }
         }
