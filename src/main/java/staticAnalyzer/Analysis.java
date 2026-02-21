@@ -910,9 +910,36 @@ class Analysis {
             } else if ( opcode == Opcodes.NOP ) {
                 // ignore
             } else if ( opcode == Opcodes.ATHROW ) {
-                //@TODO if the exception catch is in the method body
-                //then continue, or else terminate.
-                throw new RuntimeException("athrow not yet implemented");
+                Variable ex = s.stackPop();
+                String exType = ex.getType();
+                if (exType.startsWith("L") && exType.endsWith(";")) {
+                    exType = exType.substring(1, exType.length() - 1);
+                }
+
+                // Iterate through try-catch blocks
+                for (Object o : m.tryCatchBlocks) {
+                    TryCatchBlockNode tcb = (TryCatchBlockNode) o;
+                    int start = getIndex(il, tcb.start);
+                    int end = getIndex(il, tcb.end);
+
+                    if (pci >= start && pci < end) {
+                        boolean caught = false;
+                        if (tcb.type == null) {
+                            caught = true;
+                        } else {
+                            caught = isSubclass(exType, tcb.type);
+                        }
+
+                        if (caught) {
+                            s.clearStack();
+                            s.stackPush(ex);
+
+                            int handler = getIndex(il, tcb.handler);
+                            return analyzeInstructions(m, il, handler, il.size() - 1, s, j);
+                        }
+                    }
+                }
+                return s;
             } else if ( opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN ) {
                 // Return
                 if ( s.stackSize() > 0 ) {
@@ -965,5 +992,18 @@ class Analysis {
 
     private static final int min( int a, int b ) {
         return a < b ? a : b;
+    }
+
+    private boolean isSubclass(String child, String parent) {
+        if (child.equals(parent)) return true;
+        try {
+            ClassNode c = Repository.lookupClass(child);
+            if (c.superName != null) {
+                return isSubclass(c.superName, parent);
+            }
+        } catch (ClassNotFoundException e) {
+            System.err.println("Class not found: " + child);
+        }
+        return false;
     }
 }
