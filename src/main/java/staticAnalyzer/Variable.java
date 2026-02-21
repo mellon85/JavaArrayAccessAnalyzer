@@ -311,7 +311,7 @@ class Variable implements Serializable, Cloneable {
         return newLocal();
     }
 
-    public Variable div( Variable v ) { //@TODO
+    public Variable div( Variable v ) {
         DomainValue dv;
         if (   getDomainValue() == DomainValue.TOP
           || v.getDomainValue() == DomainValue.TOP ) {
@@ -322,26 +322,63 @@ class Variable implements Serializable, Cloneable {
         Variable r = new Variable(v.type,Kind.LOCAL,dv
                 ,Integer.MAX_VALUE,0);
 
-        // analyze safe and edge
-        Iterator i = safe.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.safe.contains(s)) {
-                r.addSafe(s);
+        if (dv != DomainValue.TOP) {
+            // this / v <= this (assuming non-negative this and v >= 1)
+            // propagate safe and edge from this
+            if (safe != null) {
+                for (Variable s : safe) {
+                    r.addSafe(s);
+                }
             }
-        }
-        i = edge.iterator();
-        while( i.hasNext() ) {
-            Variable s = (Variable)i.next();
-            if (v.edge.contains(s)) {
-                r.addEdge(s);
+            if (edge != null) {
+                for (Variable s : edge) {
+                    r.addEdge(s);
+                }
             }
         }
         return r;
     }
 
-    public Variable rem( Variable v ) { //@TODO
-        throw new RuntimeException("Variable.rem unimplemented");
+    public Variable rem( Variable v ) {
+        DomainValue dv;
+        if (   getDomainValue() == DomainValue.TOP
+          || v.getDomainValue() == DomainValue.TOP ) {
+            dv = DomainValue.TOP;
+        } else {
+            dv = DomainValue.GEQ0;
+        }
+        Variable r = new Variable(v.type,Kind.LOCAL,dv
+                ,Integer.MAX_VALUE,0);
+
+        if (dv != DomainValue.TOP) {
+            // r = this % v.  0 <= r < v.
+            r.addSafe(v);
+
+            // r < v implies r inherits v's bounds
+            if (v.safe != null) {
+                for (Variable s : v.safe) {
+                    r.addSafe(s);
+                }
+            }
+            if (v.edge != null) {
+                for (Variable s : v.edge) {
+                    r.addSafe(s); // edge becomes safe because r < v <= s
+                }
+            }
+
+            // r <= this implies r inherits this's bounds
+            if (safe != null) {
+                for (Variable s : safe) {
+                    r.addSafe(s);
+                }
+            }
+            if (edge != null) {
+                for (Variable s : edge) {
+                    r.addEdge(s);
+                }
+            }
+        }
+        return r;
     }
 
     public Variable mul( Variable v ) {
