@@ -95,8 +95,11 @@ class Analysis {
                 }
             } else {
                 // there are some arguments for the function
+                int i = state.getVariables().size();
                 for( Variable v : parameters ) {
+                    v.setIndex(i);
                     state.getVariables().add(v);
+                    i++;
                 }
             }
 
@@ -770,8 +773,9 @@ class Analysis {
                         System.out.println("Analyze call to "+name);
 
                         Type[] args = Type.getArgumentTypes(desc);
+                        Vector<Variable> params = new Vector<Variable>();
                         for( Type argument : args )
-                            s.stackPop();
+                            params.add(0, s.stackPop());
 
                         // search method going up in the class tree
                         try { 
@@ -811,13 +815,13 @@ class Analysis {
 
                             MethodSignature ms = new MethodSignature(method,cl);
                             if( method_result.get(ms) == null ) {
-                                boolean recursive = analyzeMethod(method,cl);
+                                boolean recursive = analyzeMethod(method,cl,cloneArguments(params));
                                 if( recursive ) {
                                     assert method_result.get(ms).getDomainValue() == Variable.DomainValue.TOP;
-                                    analyzeMethod(method,cl);
+                                    analyzeMethod(method,cl,cloneArguments(params));
                                     Variable ret = method_result.get(ms);
                                     while( ret.intersect(method_result.get(ms),s) ) {
-                                        analyzeMethod(method,cl);
+                                        analyzeMethod(method,cl,cloneArguments(params));
                                     }
                                     method_result.remove(ms);
                                     method_result.put(ms,ret);
@@ -965,5 +969,21 @@ class Analysis {
 
     private static final int min( int a, int b ) {
         return a < b ? a : b;
+    }
+
+    private Vector<Variable> cloneArguments( Vector<Variable> args ) {
+        Vector<Variable> newArgs = new Vector<Variable>();
+        Map<Variable,Variable> map = new IdentityHashMap<Variable,Variable>();
+
+        for( Variable v : args ) {
+            Variable n = v.clone();
+            map.put(v, n);
+            newArgs.add(n);
+        }
+
+        for( Variable v : newArgs ) {
+            v.remap(map);
+        }
+        return newArgs;
     }
 }

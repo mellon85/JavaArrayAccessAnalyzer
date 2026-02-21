@@ -422,4 +422,25 @@ class Variable implements Serializable, Cloneable {
         edge = null;
     }
 
+    public void remap( Map<Variable,Variable> map ) {
+        if ( safe != null ) {
+            List<Variable> n = new LinkedList<Variable>();
+            for( Variable v : safe ) {
+                if( map.containsKey(v) ) {
+                    n.add(map.get(v));
+                }
+            }
+            safe = n;
+        }
+        if ( edge != null ) {
+            List<Variable> n = new LinkedList<Variable>();
+            for( Variable v : edge ) {
+                if( map.containsKey(v) ) {
+                    n.add(map.get(v));
+                }
+            }
+            edge = n;
+        }
+    }
+
 }
