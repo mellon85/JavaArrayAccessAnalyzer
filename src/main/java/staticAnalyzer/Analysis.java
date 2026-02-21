@@ -769,9 +769,11 @@ class Analysis {
                     } else { // the method is in the classes to analyze
                         System.out.println("Analyze call to "+name);
 
+                        Vector<Variable> arguments = new Vector<Variable>();
                         Type[] args = Type.getArgumentTypes(desc);
-                        for( Type argument : args )
-                            s.stackPop();
+                        for( Type argument : args ) {
+                            arguments.add(0, s.stackPop());
+                        }
 
                         // search method going up in the class tree
                         try { 
@@ -811,13 +813,16 @@ class Analysis {
 
                             MethodSignature ms = new MethodSignature(method,cl);
                             if( method_result.get(ms) == null ) {
-                                boolean recursive = analyzeMethod(method,cl);
+                                Vector<Variable> parameters = SerialClone.clone(arguments);
+                                boolean recursive = analyzeMethod(method,cl,parameters);
                                 if( recursive ) {
                                     assert method_result.get(ms).getDomainValue() == Variable.DomainValue.TOP;
-                                    analyzeMethod(method,cl);
+                                    parameters = SerialClone.clone(arguments);
+                                    analyzeMethod(method,cl,parameters);
                                     Variable ret = method_result.get(ms);
                                     while( ret.intersect(method_result.get(ms),s) ) {
-                                        analyzeMethod(method,cl);
+                                        parameters = SerialClone.clone(arguments);
+                                        analyzeMethod(method,cl,parameters);
                                     }
                                     method_result.remove(ms);
                                     method_result.put(ms,ret);
