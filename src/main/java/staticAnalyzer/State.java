@@ -70,6 +70,10 @@ class State implements Cloneable, Serializable {
         return stack.size();
     }
 
+    public void clearStack() {
+        stack.clear();
+    }
+
     protected Vector<Variable> getVariables() {
         return variables;
     }
